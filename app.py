@@ -4,55 +4,50 @@ from werkzeug.utils import secure_filename
 import os
 
 app = Flask(__name__)
-# It's a good practice to use a more secure, randomly generated secret key
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a_default_secret_key_for_development')
+# Use an environment variable for the secret key for better security
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'default-super-secret-key')
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Ensure the upload folder exists
+# This line is important: It ensures the 'uploads' folder gets created inside the container
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# --- START OF CHANGES ---
-
 def get_db_connection():
     """
-    Creates a new database connection using environment variables
-    for Azure Database for MySQL.
+    Creates a new database connection for Azure Database for MySQL.
+    It uses environment variables for credentials and requires an SSL certificate.
     """
-    # Azure Database for MySQL requires an SSL connection.
-    # We assume the certificate file is in the root directory.
-    # Azure provides this certificate, which we'll name 'DigiCertGlobalRootG2.crt.pem'
-    # For local development without SSL, you can remove the 'ssl' parameter.
     return pymysql.connect(
         host=os.environ.get('DB_HOST'),
         user=os.environ.get('DB_USER'),
         password=os.environ.get('DB_PASSWORD'),
         db=os.environ.get('DB_NAME'),
         cursorclass=pymysql.cursors.DictCursor,
+        # This line is critical for a secure connection to Azure
         ssl_ca='DigiCertGlobalRootG2.crt.pem'
     )
-
-# --- END OF CHANGES ---
-
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        conn = get_db_connection()
+        # Using a try-except block is good practice for database operations
         try:
+            conn = get_db_connection()
             with conn.cursor() as cursor:
-                # NOTE: Storing passwords in plain text is insecure.
-                # In a real-world app, you should hash and salt passwords.
+                # In a real app, you should hash passwords for security
                 cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password))
                 conn.commit()
+            conn.close()
             return redirect('/login')
         except pymysql.err.IntegrityError:
             return render_template('register.html', error="Username already exists.")
-        finally:
-            conn.close()
+        except Exception as e:
+            # This helps in debugging if other database errors occur
+            print(f"An error occurred: {e}")
+            return "An internal server error occurred", 500
     return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -149,6 +144,6 @@ def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 if __name__ == '__main__':
-    # Use a port assigned by the environment or default to 8080
+    # This part is for local development and won't be used by Gunicorn in Azure
     port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=True)
