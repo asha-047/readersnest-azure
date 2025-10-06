@@ -4,21 +4,37 @@ from werkzeug.utils import secure_filename
 import os
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key_here'
+# It's a good practice to use a more secure, randomly generated secret key
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a_default_secret_key_for_development')
 UPLOAD_FOLDER = 'uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# Ensure the upload folder exists
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
+# --- START OF CHANGES ---
+
 def get_db_connection():
+    """
+    Creates a new database connection using environment variables
+    for Azure Database for MySQL.
+    """
+    # Azure Database for MySQL requires an SSL connection.
+    # We assume the certificate file is in the root directory.
+    # Azure provides this certificate, which we'll name 'DigiCertGlobalRootG2.crt.pem'
+    # For local development without SSL, you can remove the 'ssl' parameter.
     return pymysql.connect(
-        unix_socket=os.environ['DB_HOST'],
-        user='libadmin',
-        password='libadmin',
-        db='lib',
-        cursorclass=pymysql.cursors.DictCursor
+        host=os.environ.get('DB_HOST'),
+        user=os.environ.get('DB_USER'),
+        password=os.environ.get('DB_PASSWORD'),
+        db=os.environ.get('DB_NAME'),
+        cursorclass=pymysql.cursors.DictCursor,
+        ssl_ca='DigiCertGlobalRootG2.crt.pem'
     )
+
+# --- END OF CHANGES ---
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -28,6 +44,8 @@ def register():
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
+                # NOTE: Storing passwords in plain text is insecure.
+                # In a real-world app, you should hash and salt passwords.
                 cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password))
                 conn.commit()
             return redirect('/login')
@@ -110,7 +128,7 @@ def edit(id):
         title = request.form['title']
         author = request.form['author']
         file = request.files.get('file')
-        filename = None
+
         if file and file.filename != '':
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
@@ -120,6 +138,7 @@ def edit(id):
         conn.commit()
         conn.close()
         return redirect('/')
+
     cursor.execute("SELECT * FROM books WHERE id=%s", (id,))
     book = cursor.fetchone()
     conn.close()
@@ -128,3 +147,8 @@ def edit(id):
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+if __name__ == '__main__':
+    # Use a port assigned by the environment or default to 8080
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
