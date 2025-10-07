@@ -110,3 +110,16 @@ body {
 .text-light a:hover {
     text-decoration: underline;
 }
+
+/* --- START OF CHANGE --- */
+.btn-outline-light {
+    color: black; /* This changes the download button text color */
+    border-color: #f8f9fa;
+}
+
+.btn-outline-light:hover {
+    color: #007bff; /* Optional: Change color on hover */
+    background-color: #f8f9fa;
+    border-color: #f8f9fa;
+}
+/* --- END OF CHANGE --- */
