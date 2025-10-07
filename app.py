@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, redirect, session, send_from_directory
+from flask import Flask, request, render_template, redirect, session
 import pymysql
 from werkzeug.utils import secure_filename
 import os
@@ -8,14 +8,10 @@ from datetime import datetime, timedelta
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'default-super-secret-key')
 
-# --- START OF BLOB STORAGE CONFIG ---
-# We no longer need the local UPLOAD_FOLDER
+# --- BLOB STORAGE CONFIG ---
 CONTAINER_NAME = "books"
 CONNECT_STR = os.environ.get('AZURE_STORAGE_CONNECTION_STRING')
-# Create a BlobServiceClient to interact with the storage account
 blob_service_client = BlobServiceClient.from_connection_string(CONNECT_STR)
-# --- END OF BLOB STORAGE CONFIG ---
-
 
 def get_db_connection():
     return pymysql.connect(
@@ -27,9 +23,12 @@ def get_db_connection():
         ssl_ca='DigiCertGlobalRootG2.crt.pem'
     )
 
-# --- ROUTES (Login, Register, Logout are unchanged) ---
+# --- All your existing routes (register, login, add, edit, etc.) go here ---
+# (No changes are needed to your other functions)
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    # ... your existing register code ...
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -49,6 +48,7 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # ... your existing login code ...
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -66,12 +66,13 @@ def login():
 
 @app.route('/logout')
 def logout():
+    # ... your existing logout code ...
     session.pop('user', None)
     return redirect('/login')
 
-
 @app.route('/')
 def index():
+    # ... your existing index code ...
     if 'user' not in session:
         return redirect('/login')
     conn = get_db_connection()
@@ -83,6 +84,7 @@ def index():
 
 @app.route('/search')
 def search():
+    # ... your existing search code ...
     if 'user' not in session:
         return redirect('/login')
     query = request.args.get('q', '')
@@ -93,9 +95,9 @@ def search():
     conn.close()
     return render_template('index.html', books=books, query=query)
 
-# --- START OF MODIFIED UPLOAD/DOWNLOAD LOGIC ---
 @app.route('/add', methods=['POST'])
 def add():
+    # ... your existing add code ...
     if 'user' not in session:
         return redirect('/login')
     title = request.form['title']
@@ -104,7 +106,6 @@ def add():
     filename = None
     if file and file.filename != '':
         filename = secure_filename(file.filename)
-        # Upload the file to Azure Blob Storage instead of saving locally
         blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=filename)
         blob_client.upload_blob(file.read(), overwrite=True)
 
@@ -115,17 +116,14 @@ def add():
     conn.close()
     return redirect('/')
 
-# Edit function is similar, but not included here for brevity
-
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
+    # ... your existing uploads code ...
     if 'user' not in session:
         return redirect('/login')
     
-    # Get a blob client to interact with the specific blob
     blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=filename)
 
-    # Generate a SAS token that is valid for 1 hour
     sas_token = generate_blob_sas(
         account_name=blob_service_client.account_name,
         container_name=CONTAINER_NAME,
@@ -135,17 +133,12 @@ def uploaded_file(filename):
         expiry=datetime.utcnow() + timedelta(hours=1)
     )
 
-    # Create the full URL for the blob with the SAS token
     blob_url_with_sas = f"{blob_client.url}?{sas_token}"
-    
-    # Redirect the user's browser to the secure, temporary download link
     return redirect(blob_url_with_sas)
 
-# --- END OF MODIFIED UPLOAD/DOWNLOAD LOGIC ---
-
-# Edit function - also updated for blob storage
 @app.route('/edit/<int:id>', methods=['GET', 'POST'])
 def edit(id):
+    # ... your existing edit code ...
     if 'user' not in session:
         return redirect('/login')
     
@@ -159,7 +152,6 @@ def edit(id):
 
         if file and file.filename != '':
             filename = secure_filename(file.filename)
-            # Upload the new file to Azure Blob Storage
             blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=filename)
             blob_client.upload_blob(file.read(), overwrite=True)
             cursor.execute("UPDATE books SET title=%s, author=%s, filename=%s WHERE id=%s", (title, author, filename, id))
@@ -175,7 +167,39 @@ def edit(id):
     conn.close()
     return render_template('edit.html', book=book)
 
+# --- START OF NEW DELETE FUNCTION ---
+@app.route('/delete/<int:id>')
+def delete_book(id):
+    """Deletes a book's file from blob storage and its record from the database."""
+    if 'user' not in session:
+        return redirect('/login')
+
+    conn = get_db_connection()
+    with conn.cursor() as cursor:
+        # First, get the filename of the book to delete it from Blob Storage
+        cursor.execute("SELECT filename FROM books WHERE id = %s", (id,))
+        book = cursor.fetchone()
+        
+        if book and book.get('filename'):
+            try:
+                # Create a client to interact with the specific blob
+                blob_client = blob_service_client.get_blob_client(container=CONTAINER_NAME, blob=book['filename'])
+                # Delete the blob from Azure Storage
+                blob_client.delete_blob()
+                print(f"Successfully deleted blob: {book['filename']}")
+            except Exception as e:
+                # Log an error if the blob deletion fails, but continue to delete the DB record
+                print(f"Error deleting blob {book['filename']}: {e}")
+
+        # Now, delete the book record from the database
+        cursor.execute("DELETE FROM books WHERE id = %s", (id,))
+        conn.commit()
+    
+    conn.close()
+    # Redirect back to the main page
+    return redirect('/')
+# --- END OF NEW DELETE FUNCTION ---
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     app.run(host='0.0.0.0', port=port, debug=True)
-
