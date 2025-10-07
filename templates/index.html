@@ -4,109 +4,59 @@
   <title>📚 Readers' Nest</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    /* Your existing styles are fine, no changes needed here */
-    body {
-      background: linear-gradient(to right, #f8f9fa, #e9ecef);
-      font-family: 'Segoe UI', sans-serif;
-    }
-    .card {
-      border-radius: 15px;
-    }
-    .btn-primary, .btn-outline-primary {
-      border-radius: 30px;
-    }
-    .btn-outline-info {
-      border-radius: 20px;
-    }
-    .heading {
-      font-size: 2.5rem;
-      font-weight: bold;
-    }
-    .glass {
-      background: rgba(255, 255, 255, 0.7);
-      backdrop-filter: blur(6px);
-      border-radius: 20px;
-    }
-    input[type="file"]::-webkit-file-upload-button {
-      background: #0d6efd;
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 10px;
-    }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <div class="container mt-5">
-    <div class="glass p-4 shadow">
-      <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="heading">📚 Readers' Nest</h1>
-        <a href="/logout" class="btn btn-outline-secondary">Logout</a>
+  <div class="container my-5">
+    <div class="main-container">
+      <div class="header-bar">
+        <h1>📚 Readers’ Nest</h1>
+        <a href="/logout" class="btn btn-gradient">Logout</a>
       </div>
 
-      <form action="/search" method="get" class="input-group mb-4">
-        <input name="q" value="{{ query or '' }}" class="form-control" placeholder="🔍 Search by title or author...">
-        <button class="btn btn-outline-primary">Search</button>
+      <form action="/search" method="get" class="input-group mb-4 search-bar">
+        <input name="q" value="{{ query or '' }}" class="form-control" placeholder="🔍 Search by title or author…">
+        <button class="btn btn-gradient">Search</button>
       </form>
 
-      <div class="card shadow-sm p-4 mb-4">
-        <h4 class="mb-3">📥 Upload a Book</h4>
+      <div class="card upload-card mb-4">
+        <h4 class="mb-3 text-white">📥 Upload a Book</h4>
         <form method="POST" action="/add" enctype="multipart/form-data" class="row g-3">
-          <div class="col-md-3">
-            <input name="title" required class="form-control" placeholder="Book Title">
-          </div>
-          <div class="col-md-3">
-            <input name="author" required class="form-control" placeholder="Author">
-          </div>
-          <div class="col-md-4">
-            <input type="file" name="file" class="form-control">
-          </div>
-          <div class="col-md-2">
-            <button class="btn btn-primary w-100">Add</button>
-          </div>
+          <div class="col-md-4"><input name="title" required class="form-control" placeholder="Book Title"></div>
+          <div class="col-md-4"><input name="author" required class="form-control" placeholder="Author"></div>
+          <div class="col-md-4"><input type="file" name="file" class="form-control"></div>
+          <div class="col-12 text-center"><button class="btn btn-gradient w-25">Add</button></div>
         </form>
       </div>
 
-     <!-- ... (keep all your existing HTML and styles) ... -->
-
-<div class="table-responsive">
-  <table class="table table-hover align-middle table-bordered bg-white shadow-sm">
-    <thead class="table-primary text-center">
-      <tr>
-        <th>ID</th>
-        <th>Title</th>
-        <th>Author</th>
-        <th>File</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for book in books %}
-        <tr>
-          <!-- START OF CHANGE -->
-          <td class="text-center">{{ loop.index }}</td> <!-- This displays the current loop iteration (1, 2, 3, ...) -->
-          <!-- END OF CHANGE -->
-          
-          <td>{{ book.title }}</td>
-          <td>{{ book.author }}</td>
-          <td class="text-center">
-            {% if book.filename %}
-              <a href="/uploads/{{ book.filename }}" class="btn btn-sm btn-outline-info" target="_blank">📄 Download</a>
-            {% else %}
-              <span class="text-muted">No file</span>
-            {% endif %}
-          </td>
-          <td class="text-center">
-            <a href="/edit/{{ book.id }}" class="btn btn-sm btn-warning">✏️ Edit</a>
-            <a href="/delete/{{ book.id }}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this book?');">🗑️ Delete</a>
-          </td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
+      <div class="table-responsive data-table">
+        <table class="table table-hover align-middle table-borderless">
+          <thead><tr class="text-center"><th>ID</th><th>Title</th><th>Author</th><th>File</th><th>Action</th></tr></thead>
+          <tbody>
+            {% for book in books %}
+            <tr>
+              <td class="text-center">{{ loop.index }}</td>
+              <td>{{ book.title }}</td>
+              <td>{{ book.author }}</td>
+              <td class="text-center">
+                {% if book.filename %}
+                <a href="/uploads/{{ book.filename }}" class="btn btn-sm btn-outline-light" target="_blank">Download</a>
+                {% else %}
+                <span class="text-light">No file</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                <a href="/edit/{{ book.id }}" class="btn btn-sm btn-warning"> Edit</a>
+                <a href="/delete/{{ book.id }}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?');">Delete</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </body>
