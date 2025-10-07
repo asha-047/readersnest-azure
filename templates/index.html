@@ -68,33 +68,45 @@
         </form>
       </div>
 
-      <div class="table-responsive">
-        <table class="table table-hover align-middle table-bordered bg-white shadow-sm">
-          <thead class="table-primary text-center">
-            <tr><th>ID</th><th>Title</th><th>Author</th><th>File</th><th>Action</th></tr>
-          </thead>
-          <tbody>
-            {% for book in books %}
-              <tr>
-                <td class="text-center">{{ book.id }}</td>
-                <td>{{ book.title }}</td>
-                <td>{{ book.author }}</td>
-                <td class="text-center">
-                  {% if book.filename %}
-                    <a href="/uploads/{{ book.filename }}" class="btn btn-sm btn-outline-info" target="_blank">📄 Download</a>
-                  {% else %}
-                    <span class="text-muted">No file</span>
-                  {% endif %}
-                </td>
-                <td class="text-center">
-                  <a href="/edit/{{ book.id }}" class="btn btn-sm btn-warning">✏️ Edit</a>
-                  <a href="/delete/{{ book.id }}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this book?');">🗑️ Delete</a>
-                  </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+     <!-- ... (keep all your existing HTML and styles) ... -->
+
+<div class="table-responsive">
+  <table class="table table-hover align-middle table-bordered bg-white shadow-sm">
+    <thead class="table-primary text-center">
+      <tr>
+        <th>ID</th>
+        <th>Title</th>
+        <th>Author</th>
+        <th>File</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for book in books %}
+        <tr>
+          <!-- START OF CHANGE -->
+          <td class="text-center">{{ loop.index }}</td> <!-- This displays the current loop iteration (1, 2, 3, ...) -->
+          <!-- END OF CHANGE -->
+          <td class="text-center">{{ book.id }}</td>
+          <td>{{ book.title }}</td>
+          <td>{{ book.author }}</td>
+          <td class="text-center">
+            {% if book.filename %}
+              <a href="/uploads/{{ book.filename }}" class="btn btn-sm btn-outline-info" target="_blank">📄 Download</a>
+            {% else %}
+              <span class="text-muted">No file</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            <a href="/edit/{{ book.id }}" class="btn btn-sm btn-warning">✏️ Edit</a>
+            <a href="/delete/{{ book.id }}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this book?');">🗑️ Delete</a>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
     </div>
   </div>
 </body>
